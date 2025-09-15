@@ -1,0 +1,68 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  name         String
+  email        String   @unique
+  passwordHash String
+  
+  // Relation: A User can create many Polls
+  polls        Poll[]
+  
+  // Relation: A User can cast many Votes
+  votes        Vote[]
+}
+
+model Poll {
+  id          Int      @id @default(autoincrement())
+  question    String
+  isPublished Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relation: A Poll belongs to one User
+  creator     User @relation(fields: [creatorId], references: [id])
+  creatorId   Int
+  
+  // Relation: A Poll has many PollOptions
+  options     PollOption[]
+}
+
+// PollOption Model as required
+model PollOption {
+  id     Int    @id @default(autoincrement())
+  text   String
+
+  // Relation: A PollOption belongs to one Poll
+  poll   Poll @relation(fields: [pollId], references: [id])
+  pollId Int
+
+  // Relation: A PollOption can have many Votes
+  votes  Vote[]
+}
+
+// Vote Model (Explicit many-to-many join table)
+model Vote {
+  id Int @id @default(autoincrement())
+
+  // Relation: A Vote is cast by one User
+  user   User @relation(fields: [userId], references: [id])
+  userId Int
+
+  // Relation: A Vote is for one PollOption
+  pollOption   PollOption @relation(fields: [pollOptionId], references: [id])
+  pollOptionId Int
+
+  // Add a unique constraint to prevent a user from voting on the same option multiple times
+  @@unique([userId, pollOptionId])
+}
