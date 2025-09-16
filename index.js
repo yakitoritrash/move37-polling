@@ -27,11 +27,82 @@ app.use(express.json());
 // --- API ENDPOINTS ---
 
 // ... (Your existing /users and /polls endpoints go here) ...
-app.post('/users', async (req, res) => { /* existing code */ });
-app.get('/users', async (req, res) => { /* existing code */ });
-app.post('/polls', async (req, res) => { /* existing code */ });
-app.get('/polls', async (req, res) => { /* existing code */ });
+// POST /users - Create a new user
+app.post('/users', async (req, res) => {
+  try {
+    const { name, email, passwordHash } = req.body;
+    const newUser = await prisma.user.create({
+      data: {
+        name,
+        email,
+        passwordHash,
+      },
+    });
+    res.status(201).json(newUser);
+  } catch (error) {
+    // Log the detailed error to the console
+    console.error(error); 
 
+    // Send a more informative error response
+    res.status(500).json({ error: 'Error creating user', details: error.message });
+  }
+});
+// GET /users - Retrieve all users
+app.get('/users', async (req, res) => {
+  try {
+    const users = await prisma.user.findMany(); // Fetch all users from the database
+    res.json(users);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error fetching users' });
+  }
+});
+
+// POST /polls - Create a new poll with options
+app.post('/polls', async (req, res) => {
+  try {
+    const { question, options, creatorId } = req.body;
+
+    // Prisma's nested write creates the poll and its options in one transaction
+    const newPoll = await prisma.poll.create({
+      data: {
+        question,
+        creatorId, // Link the poll to the user who created it
+        options: {
+          create: options.map(optionText => ({ text: optionText })),
+        },
+      },
+      include: {
+        options: true, // Include the newly created options in the response
+      },
+    });
+
+    res.status(201).json(newPoll);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error creating poll' });
+  }
+});
+// GET /polls - Retrieve all polls with their options and creators
+app.get('/polls', async (req, res) => {
+  try {
+    const polls = await prisma.poll.findMany({
+      include: {
+        options: true, // Include poll options
+        creator: {      // Include creator info
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+    res.json(polls);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error fetching polls' });
+  }
+});
 // POST /vote - Submit a vote AND broadcast results
 app.post('/vote', async (req, res) => {
   try {
